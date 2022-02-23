@@ -14,8 +14,10 @@ import {
 	removeMessageFromDomAndShiftOthers,
 } from './utilities.mjs';
 
-const chatbox = document.querySelector('[data-twitch-chat]');
-const watchedChannels = chatbox.getAttribute('data-twitch-chat');
+if (typeof window === 'object') {
+	const chatbox = document.querySelector('[data-twitch-chat]');
+	const watchedChannels = chatbox.getAttribute('data-twitch-chat');
+}
 
 let mostRecentSender = '';
 let currentMessageGroup = 0;
@@ -53,7 +55,7 @@ function htmlEntities(html) {
  * @param {object} emotes - object which details which emote IDs can be found at which substring ranges in the message
  * @returns {string} message with valid emotes replaced with `<img>` tags
  */
-function formatEmotes(text, emotes = {}) {
+export function formatEmotes(text, emotes = {}) {
 	let splitText = text.split('');
 	for (let emoteId in emotes) {
 		let e = emotes[emoteId];
@@ -142,163 +144,173 @@ function formatChatCommand(messageContents) {
 // 		return `<a href="${link}">${link}</a>`;
 // 	});
 // }
+if (typeof window === 'object') {
+	ComfyJS.onChat = function (user, messageContents, flags, self, extra) {
+		// If sender is blocklisted, don't even think about doing the rest of this
+		const hideSender =
+			Array.isArray(window.CONFIG.hideMessagesFrom) &&
+			window.CONFIG.hideMessagesFrom.includes(user.toLowerCase());
+		if (hideSender) return;
 
-ComfyJS.onChat = function (user, messageContents, flags, self, extra) {
-	// If sender is blocklisted, don't even think about doing the rest of this
-	const hideSender =
-		Array.isArray(window.CONFIG.hideMessagesFrom) &&
-		window.CONFIG.hideMessagesFrom.includes(user.toLowerCase());
-	if (hideSender) return;
+		// Assemble message node
+		const newMessage = document.createElement('li');
 
-	// Assemble message node
-	const newMessage = document.createElement('li');
+		const sender = document.createElement('div');
+		sender.classList.add('twitch-chat-sender');
+		sender.innerHTML = user;
 
-	const sender = document.createElement('div');
-	sender.classList.add('twitch-chat-sender');
-	sender.innerHTML = user;
-
-	const message = document.createElement('div');
-	let formattedMessage = formatEmotes(messageContents, extra.messageEmotes);
-	// formattedMessage = formatBttvEmotes(formattedMessage);
-	// formattedMessage = formatLinks(formattedMessage);
-	formattedMessage = formatUserMentions(formattedMessage);
-	if (extra._isCommand) {
-		formattedMessage = formatChatCommand(formattedMessage);
-		newMessage.setAttribute('data-twitch-command', extra._commandName);
-		if (extra._commandHasBody) {
-			newMessage.setAttribute('data-twitch-command-has-message', true);
+		const message = document.createElement('div');
+		let formattedMessage = formatEmotes(messageContents, extra.messageEmotes);
+		// formattedMessage = formatBttvEmotes(formattedMessage);
+		// formattedMessage = formatLinks(formattedMessage);
+		formattedMessage = formatUserMentions(formattedMessage);
+		if (extra._isCommand) {
+			formattedMessage = formatChatCommand(formattedMessage);
+			newMessage.setAttribute('data-twitch-command', extra._commandName);
+			if (extra._commandHasBody) {
+				newMessage.setAttribute('data-twitch-command-has-message', true);
+			}
 		}
-	}
 
-	message.innerHTML = formattedMessage;
-	message.classList.add('twitch-chat-message');
+		message.innerHTML = formattedMessage;
+		message.classList.add('twitch-chat-message');
 
-	if (extra.userState['reply-parent-msg-id']) {
-		const replyPreview = document.createElement('small');
-		replyPreview.setAttribute(
-			'data-twitch-message-reply',
-			extra.userState['reply-parent-msg-id']
-		);
-		const repliedMessage = extra.userState['reply-parent-msg-body'].replace(
-			/\\s/g,
-			' '
-		);
-		replyPreview.innerHTML = `Replying to @${extra.userState['reply-parent-display-name']}: ${repliedMessage}`;
-		newMessage.appendChild(replyPreview);
-	}
-
-	newMessage.appendChild(sender);
-	newMessage.appendChild(message);
-
-	newMessage.setAttribute('data-twitch-message', extra.id);
-	newMessage.setAttribute('data-twitch-sender', user);
-
-	// Apply style hooks
-	const senderRoles = [];
-	if (flags.broadcaster) senderRoles.push('broadcaster');
-	if (flags.founder) senderRoles.push('founder');
-	if (flags.mod) senderRoles.push('mod');
-	if (flags.subscriber) senderRoles.push('subscriber');
-	if (flags.vip) senderRoles.push('vip');
-	if (senderRoles.length > 0) {
-		newMessage.setAttribute('data-twitch-sender-roles', senderRoles.join(' '));
-	}
-
-	const messageStatus = [];
-	if (flags.highlighted) messageStatus.push('highlighted');
-	if (flags.customReward) messageStatus.push('customReward');
-	if (messageStatus.length > 0) {
-		newMessage.setAttribute(
-			'data-twitch-message-status',
-			messageStatus.join(' ')
-		);
-	}
-
-	if (extra.userColor) {
-		newMessage.setAttribute('data-twitch-sender-color', extra.userColor);
-		newMessage.setAttribute(
-			'style',
-			`--twitch-sender-color: ${extra.userColor}`
-		);
-
-		const senderColorLightness = isLightOrDark(extra.userColor);
-		newMessage.setAttribute(
-			'data-twitch-sender-color-lightness',
-			senderColorLightness
-		);
-	}
-
-	if (extra.userState['first-msg']) {
-		newMessage.setAttribute('data-twitch-sender-first-message', true);
-	}
-
-	if (user !== mostRecentSender) {
-		mostRecentSender = user;
-		currentMessageGroup++;
-		newMessage.setAttribute('data-twitch-first-message-in-group', true);
-	}
-	newMessage.setAttribute('data-twitch-message-group', currentMessageGroup);
-
-	chatbox.appendChild(newMessage);
-
-	// Optionally, users may specify a max number of messages to show.
-	// If we exceed that number, remove the oldest still shown message.
-	/** @type {{showLatestMessages?: number}} */
-	const {showLatestMessages} = window.CONFIG;
-	if (showLatestMessages) {
-		while (
-			document.querySelectorAll('[data-twitch-message]').length >
-			showLatestMessages
-		) {
-			const oldestMessage = document.querySelector('[data-twitch-message]');
-			removeMessageFromDomAndShiftOthers(oldestMessage);
+		if (extra.userState['reply-parent-msg-id']) {
+			const replyPreview = document.createElement('small');
+			replyPreview.setAttribute(
+				'data-twitch-message-reply',
+				extra.userState['reply-parent-msg-id']
+			);
+			const repliedMessage = extra.userState['reply-parent-msg-body'].replace(
+				/\\s/g,
+				' '
+			);
+			replyPreview.innerHTML = `Replying to @${extra.userState['reply-parent-display-name']}: ${repliedMessage}`;
+			newMessage.appendChild(replyPreview);
 		}
+
+		newMessage.appendChild(sender);
+		newMessage.appendChild(message);
+
+		newMessage.setAttribute('data-twitch-message', extra.id);
+		newMessage.setAttribute('data-twitch-sender', user);
+
+		// Apply style hooks
+		const senderRoles = [];
+		if (flags.broadcaster) senderRoles.push('broadcaster');
+		if (flags.founder) senderRoles.push('founder');
+		if (flags.mod) senderRoles.push('mod');
+		if (flags.subscriber) senderRoles.push('subscriber');
+		if (flags.vip) senderRoles.push('vip');
+		if (senderRoles.length > 0) {
+			newMessage.setAttribute(
+				'data-twitch-sender-roles',
+				senderRoles.join(' ')
+			);
+		}
+
+		const messageStatus = [];
+		if (flags.highlighted) messageStatus.push('highlighted');
+		if (flags.customReward) messageStatus.push('customReward');
+		if (messageStatus.length > 0) {
+			newMessage.setAttribute(
+				'data-twitch-message-status',
+				messageStatus.join(' ')
+			);
+		}
+
+		if (extra.userColor) {
+			newMessage.setAttribute('data-twitch-sender-color', extra.userColor);
+			newMessage.setAttribute(
+				'style',
+				`--twitch-sender-color: ${extra.userColor}`
+			);
+
+			const senderColorLightness = isLightOrDark(extra.userColor);
+			newMessage.setAttribute(
+				'data-twitch-sender-color-lightness',
+				senderColorLightness
+			);
+		}
+
+		if (extra.userState['first-msg']) {
+			newMessage.setAttribute('data-twitch-sender-first-message', true);
+		}
+
+		if (user !== mostRecentSender) {
+			mostRecentSender = user;
+			currentMessageGroup++;
+			newMessage.setAttribute('data-twitch-first-message-in-group', true);
+		}
+		newMessage.setAttribute('data-twitch-message-group', currentMessageGroup);
+
+		chatbox.appendChild(newMessage);
+
+		// Optionally, users may specify a max number of messages to show.
+		// If we exceed that number, remove the oldest still shown message.
+		/** @type {{showLatestMessages?: number}} */
+		const {showLatestMessages} = window.CONFIG;
+		if (showLatestMessages) {
+			while (
+				document.querySelectorAll('[data-twitch-message]').length >
+				showLatestMessages
+			) {
+				const oldestMessage = document.querySelector('[data-twitch-message]');
+				removeMessageFromDomAndShiftOthers(oldestMessage);
+			}
+		}
+	};
+
+	ComfyJS.onCommand = function (user, command, message, flags, extra = {}) {
+		const showAnyCommands = window.CONFIG.showCommands === true;
+		const showAllowedCommands = Array.isArray(window.CONFIG.showCommands);
+		const showThisCommand =
+			showAnyCommands ||
+			(showAllowedCommands && window.CONFIG.showCommands.includes(command));
+
+		if (showThisCommand) {
+			const augmentedExtra = {
+				...extra,
+				_isCommand: true,
+				_commandName: command,
+				_commandHasBody: !!message,
+			};
+			ComfyJS.onChat(
+				user,
+				`!${command} ${message}`,
+				flags,
+				null,
+				augmentedExtra
+			);
+		}
+	};
+
+	ComfyJS.onMessageDeleted = function (id, extra) {
+		const messageToDelete = document.querySelector(
+			`[data-twitch-message="${id}"]`
+		);
+		if (messageToDelete) {
+			removeMessageFromDomAndShiftOthers(messageToDelete);
+		}
+	};
+
+	ComfyJS.onBan = function (bannedUsername, extra) {
+		removeAllMessagesFromUser(bannedUsername);
+	};
+
+	ComfyJS.onTimeout = function (timedOutUsername, durationInSeconds, extra) {
+		removeAllMessagesFromUser(timedOutUsername);
+	};
+
+	/**
+	 * Fetches necessary user data and begins listening for chat messages
+	 */
+	async function init() {
+		// const twitchUserId = await getTwitchUserId(watchedChannels.split(' ')[0]);
+		// bttvEmoteDict = await getBttvChannelEmoteDict(twitchUserId);
+		// bttvEmoteDict = await addGlobalBttvEmotesToDict(bttvEmoteDict);
+		ComfyJS.Init(null, null, watchedChannels.split(' '));
 	}
-};
 
-ComfyJS.onCommand = function (user, command, message, flags, extra = {}) {
-	const showAnyCommands = window.CONFIG.showCommands === true;
-	const showAllowedCommands = Array.isArray(window.CONFIG.showCommands);
-	const showThisCommand =
-		showAnyCommands ||
-		(showAllowedCommands && window.CONFIG.showCommands.includes(command));
-
-	if (showThisCommand) {
-		const augmentedExtra = {
-			...extra,
-			_isCommand: true,
-			_commandName: command,
-			_commandHasBody: !!message,
-		};
-		ComfyJS.onChat(user, `!${command} ${message}`, flags, null, augmentedExtra);
-	}
-};
-
-ComfyJS.onMessageDeleted = function (id, extra) {
-	const messageToDelete = document.querySelector(
-		`[data-twitch-message="${id}"]`
-	);
-	if (messageToDelete) {
-		removeMessageFromDomAndShiftOthers(messageToDelete);
-	}
-};
-
-ComfyJS.onBan = function (bannedUsername, extra) {
-	removeAllMessagesFromUser(bannedUsername);
-};
-
-ComfyJS.onTimeout = function (timedOutUsername, durationInSeconds, extra) {
-	removeAllMessagesFromUser(timedOutUsername);
-};
-
-/**
- * Fetches necessary user data and begins listening for chat messages
- */
-async function init() {
-	// const twitchUserId = await getTwitchUserId(watchedChannels.split(' ')[0]);
-	// bttvEmoteDict = await getBttvChannelEmoteDict(twitchUserId);
-	// bttvEmoteDict = await addGlobalBttvEmotesToDict(bttvEmoteDict);
-	ComfyJS.Init(null, null, watchedChannels.split(' '));
+	init();
 }
-
-init();
