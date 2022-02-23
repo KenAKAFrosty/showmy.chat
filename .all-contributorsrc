@@ -72,7 +72,7 @@
       "contributions": [
         "content",
         "code",
-		"infra"
+        "infra"
       ]
     },
     {
@@ -83,7 +83,17 @@
       "contributions": [
         "design",
         "code",
-        "tool"
+        "tool",
+        "doc"
+      ]
+    },
+    {
+      "login": "peruvianidol",
+      "name": "Mike Aparicio",
+      "avatar_url": "https://avatars.githubusercontent.com/u/242304?v=4",
+      "profile": "http://www.mikeaparicio.com",
+      "contributions": [
+        "design"
       ]
     }
   ],
