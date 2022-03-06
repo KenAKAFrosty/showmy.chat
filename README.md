@@ -18,7 +18,7 @@ This is the repo for [showmy.chat](https://showmy.chat), an on-demand themed Twi
 
 ## Goals
 
-**showmy.chat** is intended to be a quick, easy, plug-and-play solution for getting themed chat overlays right out of the box. Because of this, it doesn't currently support any customization beyond selecting your theme. This could change later, so long as the user experience of generating your themed overlay remains quick and easy.
+**showmy.chat** is intended to be a quick, easy, plug-and-play solution for getting themed chat overlays right out of the box. Because of this, it doesn't currently support any customization beyond selecting your theme and some basic configurations. This could change later, so long as the user experience of generating your themed overlay remains quick and easy.
 
 ## Contributing
 
